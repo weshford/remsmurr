@@ -1,5 +1,10 @@
 # Project Zomboid dedicated server container
 
+> **This fork is configured for Coolify + playit.gg.** The compose file pulls the
+> prebuilt image, takes its configuration from environment variables instead of a
+> gitignored `.env`, and follows the two ports assigned by a playit.gg
+> "Project Zomboid" tunnel. See [COOLIFY.md](COOLIFY.md) for the deployment steps.
+
 This Dockerfile downloads the Project Zombie dedicated server using SteamCMD. Will allow you to deploy with ease a server in Kubernetes, Docker...
 
 The ready to use image is available here:

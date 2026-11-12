@@ -1,30 +1,68 @@
 services:
-  ProjectZomboidDedicatedServer:
+  zomboid:
+    # Prebuilt image: no `build:` on purpose, so Coolify pulls it instead of running
+    # SteamCMD at deploy time. Keep the Dockerfile in the repo only for local builds.
     image: danixu86/project-zomboid-dedicated-server:latest
     restart: unless-stopped
     # On SIGTERM the entrypoint sends `quit` to the server console and waits for the world
     # to be saved. Docker's default grace period is 10s, which is not enough for a large
     # world and would SIGKILL the server mid-save.
     stop_grace_period: 120s
-    build:
-      context: .
-      dockerfile: Dockerfile
-      args:
-        # Reads STEAMAPPBRANCH from your .env file to set the build version (ARG).
-        - STEAMAPPBRANCH=${STEAMAPPBRANCH}
-        # Extra locales to generate in the image, so they can be selected with LANG.
-        - EXTRA_LOCALES=${EXTRA_LOCALES:-es_ES.UTF-8}
-    env_file:
-      - .env
+
+    # No env_file here: Coolify writes the values from its Environment Variables tab and
+    # Compose interpolates them below. `.env` is gitignored and would not exist in a fresh
+    # clone, so `env_file: .env` silently left the container without any configuration.
+    environment:
+      # --- Admin (first boot only, see COOLIFY.md) ---
+      ADMINUSERNAME: ${ADMINUSERNAME:-admin}
+      ADMINPASSWORD: ${ADMINPASSWORD}
+      SERVERNAME: ${SERVERNAME:-zomboid}
+
+      # --- Gameplay preset, only used to seed <SERVERNAME>_SandboxVars.lua ---
+      # Leave SERVERPRESETREPLACE at false once you start editing the file by hand,
+      # otherwise the entrypoint overwrites your changes on every restart.
+      SERVERPRESET: ${SERVERPRESET:-Apocalypse}
+      SERVERPRESETREPLACE: "false"
+
+      # --- playit.gg: must equal the two public ports assigned to the PZ tunnel ---
+      PORT: ${PZ_PORT:-16261}
+      UDPPORT: ${PZ_UDPPORT:-16262}
+
+      # --- Identity / visibility ---
+      # Keep PUBLIC=false: the Steam server browser cannot advertise the playit address.
+      PUBLIC: ${PUBLIC:-false}
+      DISPLAYNAME: ${DISPLAYNAME:-Zomboid}
+      PASSWORD: ${SERVER_PASSWORD:-}
+      NOSTEAM: ${NOSTEAM:-false}
+
+      # Set to true if you manage Mods=/WorkshopItems= in the ini yourself. Otherwise the
+      # entrypoint rewrites both lines from MOD_IDS/WORKSHOP_IDS on every start, and with
+      # those empty it clears them.
+      SELF_MANAGED_MODS: ${SELF_MANAGED_MODS:-false}
+
+      # --- JVM ---
+      MEMORY: ${MEMORY:-4G}
+      LANG: ${LANG:-en_US.UTF-8}
+
     ports:
-      # Follow the PORT and UDPPORT variables from the .env file. With the ports hardcoded,
-      # changing them left the server listening on a port that was never published, so it
-      # was unreachable from outside the container.
-      - "${PORT:-16261}:${PORT:-16261}/udp"
-      - "${UDPPORT:-16262}:${UDPPORT:-16262}/udp"
-      - "27015:27015/tcp"
+      # UDP only. Both port numbers are shared with playit.gg, so the numbers published
+      # here, the numbers the server listens on and the tunnel's ports stay identical.
+      - "${PZ_PORT:-16261}:${PZ_PORT:-16261}/udp"
+      - "${PZ_UDPPORT:-16262}:${PZ_UDPPORT:-16262}/udp"
+
     volumes:
-      # Server data
-      - ${PROJECT_ZOMBOID_DATA:-./data}:/home/steam/Zomboid
-      # Workshop mods folder
-      - ${PROJECT_ZOMBOID_WORKSHOP_MODS:-./workshop-mods}:/home/steam/pz-dedicated/steamapps/workshop
+      # Server data: ini, SandboxVars, saves, logs.
+      # In Coolify set PZ_DATA_PATH to an absolute path (e.g. /data/coolify/zomboid)
+      # so it survives redeploys and is easy to edit over SSH.
+      - ${PZ_DATA_PATH:-./data}:/home/steam/Zomboid
+      # Downloaded Workshop mods, so they are not re-downloaded on every container recreate.
+      - ${PZ_WORKSHOP_PATH:-./workshop-mods}:/home/steam/pz-dedicated/steamapps/workshop
+
+    # The image's built-in healthcheck hardcodes port 16261. Override it so it follows
+    # PORT when the playit-assigned ports are used.
+    healthcheck:
+      test: ["CMD-SHELL", "nc -z -u -w 2 127.0.0.1 ${PZ_PORT:-16261} || exit 1"]
+      interval: 2m
+      timeout: 3s
+      retries: 5
+      start_period: 5m
