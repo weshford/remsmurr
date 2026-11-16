@@ -15,6 +15,11 @@ services:
     command: |
       set -eu
       target="/home/steam/Zomboid/Server/$${SERVERNAME}_SandboxVars.lua"
+      mkdir -p -- "$$(dirname "$$target")"
+      if [ ! -f /config/SandboxVars.lua ]; then
+        echo "ERROR: /config/SandboxVars.lua is missing or is not a regular file" >&2
+        exit 1
+      fi
       if [ -d "$$target" ]; then
         rm -rf -- "$$target"
       fi
