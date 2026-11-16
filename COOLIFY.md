@@ -44,6 +44,11 @@ PZ_DATA_PATH=/data/coolify/zomboid
 PZ_WORKSHOP_PATH=/data/coolify/zomboid-workshop
 ```
 
+The repository's `servertest_SandboxVars.lua` is mounted over
+`/home/steam/Zomboid/Server/${SERVERNAME}_SandboxVars.lua`, so it replaces the
+container's sandbox settings on every deploy. Keep `SERVERNAME` aligned with the
+server whose settings you want to use.
+
 `ADMINPASSWORD` is only needed for the first boot. Once the server has generated
 `Server/zomboid.ini`, delete the variable from Coolify and redeploy. It is passed as a
 command line argument, and the server logs its arguments in clear text, so leaving it

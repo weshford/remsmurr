@@ -55,6 +55,9 @@ services:
       # In Coolify set PZ_DATA_PATH to an absolute path (e.g. /data/coolify/zomboid)
       # so it survives redeploys and is easy to edit over SSH.
       - ${PZ_DATA_PATH:-./data}:/home/steam/Zomboid
+      # Keep the committed sandbox settings authoritative on every deploy. The target
+      # filename must match SERVERNAME because that is the name used by Project Zomboid.
+      - ./config.lua:/home/steam/Zomboid/Server/${SERVERNAME:-zomboid}_SandboxVars.lua
       # Downloaded Workshop mods, so they are not re-downloaded on every container recreate.
       - ${PZ_WORKSHOP_PATH:-./workshop-mods}:/home/steam/pz-dedicated/steamapps/workshop
 
