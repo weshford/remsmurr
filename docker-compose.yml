@@ -9,6 +9,18 @@ services:
     # world and would SIGKILL the server mid-save.
     stop_grace_period: 120s
 
+    # Copy the mounted sandbox file to Project Zomboid's server-specific path before
+    # startup. This avoids Docker treating a missing file bind source as a directory.
+    entrypoint: ["/bin/bash", "-c"]
+    command: |
+      set -eu
+      target="/home/steam/Zomboid/Server/$${SERVERNAME}_SandboxVars.lua"
+      if [ -d "$$target" ]; then
+        rm -rf -- "$$target"
+      fi
+      cp /config/SandboxVars.lua "$$target"
+      exec /server/scripts/entry.sh
+
     # No env_file here: Coolify writes the values from its Environment Variables tab and
     # Compose interpolates them below. `.env` is gitignored and would not exist in a fresh
     # clone, so `env_file: .env` silently left the container without any configuration.
@@ -55,9 +67,8 @@ services:
       # In Coolify set PZ_DATA_PATH to an absolute path (e.g. /data/coolify/zomboid)
       # so it survives redeploys and is easy to edit over SSH.
       - ${PZ_DATA_PATH:-./data}:/home/steam/Zomboid
-      # Keep the committed sandbox settings authoritative on every deploy. The target
-      # filename must match SERVERNAME because that is the name used by Project Zomboid.
-      - ./config.lua:/home/steam/Zomboid/Server/remsmurr_SandboxVars.lua
+      # Keep the committed sandbox settings authoritative on every deploy.
+      - ./config.lua:/config/SandboxVars.lua
       # Downloaded Workshop mods, so they are not re-downloaded on every container recreate.
       - ${PZ_WORKSHOP_PATH:-./workshop-mods}:/home/steam/pz-dedicated/steamapps/workshop
 
